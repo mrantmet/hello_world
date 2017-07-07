@@ -1,5 +1,6 @@
 -module(eport_test).
 -export([start/0, stop/0, f1/1, f2/1, init/1]).
+-export([get_port/0]).
 
 start() ->
     spawn(?MODULE, init, [[]]).
@@ -10,6 +11,13 @@ f1(X) ->
     call_port({f1,X}).
 f2(X) ->
     call_port({f2,X}).
+
+get_port() ->
+    eport_test!{get_port, self()},
+    receive
+	{port, Port} ->
+	    Port
+    end.
 
 call_port(Msg) ->
     eport_test!{call, self(), Msg},
@@ -26,10 +34,14 @@ init([]) ->
 
 loop(Port) ->
     receive
+	{get_port, Caller} ->
+	    Caller ! {port, Port},
+	    loop(Port);
 	{call, Caller, Msg} ->
 	    Port ! {self(), {command, encode(Msg)}},
 	    receive
 		{Port, {data, Data}} ->
+		    io:format("received ~p from port ~p~n",[Data, Port]),
 		    Caller ! {eport_test, decode(Data)}
 	    end,
 	    loop(Port);
